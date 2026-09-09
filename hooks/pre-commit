@@ -1,0 +1,42 @@
+#!/bin/bash
+# 公開リポジトリに、公開してはいけない形のものが入るのを止める。
+# 見るのは「ステージされた追加行」だけ。形は機械が、意味は人が見る。
+set -uo pipefail
+
+ME="$(id -un)"          # アカウント名は書き込まない(このファイル自身が晒すため)
+fail=0
+
+check() {  # $1=ラベル  $2=拡張正規表現
+  local hits="" f added
+  while IFS= read -r -d '' f; do
+    added="$(git diff --cached -U0 -- "$f" | grep '^+' | grep -v '^+++' || true)"
+    added="$(printf '%s\n' "$added" | grep -E "$2" | grep -v 'nfq-allow' || true)"
+    [ -n "$added" ] && hits="$hits$f:"$'\n'"$added"$'\n'
+  done < <(git diff --cached --name-only -z --diff-filter=ACM)
+  if [ -n "$hits" ]; then
+    printf '\n[NG] %s\n' "$1"
+    printf '%s' "$hits"
+    fail=1
+  fi
+}
+
+check "ホームディレクトリの絶対パス(他人の Mac で動かない)" '/Users/[A-Za-z0-9._-]+'
+check "アカウント名" "$ME"
+check "メールアドレス" '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}'
+check "APIキーらしい長い英数字列" '[A-Za-z0-9_-]{32,}'
+
+envs="$(git diff --cached --name-only --diff-filter=ACM | grep -E '(^|/)\.env' || true)"
+if [ -n "$envs" ]; then
+  printf '\n[NG] .env をコミットしようとしています\n%s\n' "$envs"
+  fail=1
+fi
+
+[ "$fail" -eq 0 ] && exit 0
+
+cat <<'MSG'
+
+コミットを中止しました。
+  問題ない行なら → その行に「nfq-allow」とコメントで書けば通ります
+  全部承知なら   → git commit --no-verify
+MSG
+exit 1
