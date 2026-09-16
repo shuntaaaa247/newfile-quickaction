@@ -4,8 +4,36 @@ set -euo pipefail
 NAME="${1:?使い方: make-workflow.sh <メニュー名> <出力先ディレクトリ>}"
 OUTDIR="${2:?使い方: make-workflow.sh <メニュー名> <出力先ディレクトリ>}"
 
+case "$NAME" in
+  */*|"") echo "エラー: 名前に / は使えません: $NAME" >&2; exit 1 ;;
+esac
+
 BUNDLE="$OUTDIR/$NAME.workflow"
 CONTENTS="$BUNDLE/Contents"
+
+BUNDLE_PREFIX="com.github.shuntaaaa247.newfile-quickaction"
+SLUG="$(/sbin/md5 -q -s "$NAME" | cut -c1-12)"
+BUNDLEID="$BUNDLE_PREFIX.$SLUG"
+
+if [ -e "$BUNDLE" ]; then
+  existing="$(plutil -extract CFBundleIdentifier raw "$CONTENTS/Info.plist" 2>/dev/null || true)"
+
+  if [ "$existing" != "$BUNDLEID" ]; then
+    echo "エラー: $BUNDLE は既に存在し、このツールが作ったものではありません。" >&2
+    echo "       既存のバンドルID: ${existing:-（読み取れません）}" >&2
+    echo "       テンプレートの名前を変えてください。" >&2
+    exit 1
+  fi
+
+  existing_name="$(plutil -extract NSServices.0.NSMenuItem.default raw "$CONTENTS/Info.plist" 2>/dev/null || true)"
+  if [ "$existing_name" != "$NAME" ]; then
+    echo "エラー: バンドルIDが一致するにもかかわらずメニュー名が違います（ハッシュ衝突の疑い）。" >&2
+    echo "       既存: $existing_name / 今回: $NAME" >&2
+    exit 1
+  fi
+
+  rm -rf "$BUNDLE"    # 自分の物と確認ができたため、古い中身を残さず作り直す
+fi
 
 mkdir -p "$CONTENTS"
 
@@ -41,11 +69,14 @@ cat > "$CONTENTS/Info.plist" <<'PLIST'
 			</array>
     </dict>
   </array>
+  <key>CFBundleIdentifier</key>
+  <string>PLACEHOLDER-BUNDLEID</string>
 </dict>
 </plist>
 PLIST
 
 plutil -replace NSServices.0.NSMenuItem.default -string "$NAME" "$CONTENTS/Info.plist"
+plutil -replace CFBundleIdentifier -string "$BUNDLEID" "$CONTENTS/Info.plist"
 
 cat > "$CONTENTS/document.wflow" <<'WFLOW'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -295,4 +326,4 @@ plutil -replace "$A.InputUUID"  -string "$UUID_IN"   "$W"
 plutil -replace "$A.OutputUUID" -string "$UUID_OUT"  "$W"
 plutil -replace "$A.ActionParameters.COMMAND_STRING" -string '/usr/bin/touch "${TMPDIR}nfq-ran"' "$W"
 
-echo "作った： $BUNDLE"
+echo "$BUNDLEID"
