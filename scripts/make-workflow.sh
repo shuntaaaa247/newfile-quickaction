@@ -11,7 +11,9 @@ esac
 BUNDLE="$OUTDIR/$NAME.workflow"
 CONTENTS="$BUNDLE/Contents"
 
-BUNDLE_PREFIX="com.github.shuntaaaa247.newfile-quickaction"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/config.sh"
+
 SLUG="$(/sbin/md5 -q -s "$NAME" | cut -c1-12)"
 BUNDLEID="$BUNDLE_PREFIX.$SLUG"
 
