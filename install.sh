@@ -21,13 +21,32 @@ fi
 mkdir -p "$BIN_DIR"
 cp -p "$REP_DIR/scripts/make-workflow.sh" "$REP_DIR/scripts/config.sh" "$BIN_DIR/"
 
-PBS_BACKUP_DIR="$PBS_BACKUP_DIR/$(date "+%Y-%m-%d_%H%M%S")"
 mkdir -p "$PBS_BACKUP_DIR"
-defaults export pbs "$PBS_BACKUP_DIR/pbs.plist"
+# 直近のバックアップ（比較用）。1つも無ければ空
+# 日時ディレクトリはゼロ埋め固定長なので、名前順=新しい順になる
+PREV="$(ls -1 "$PBS_BACKUP_DIR" | tail -1)"
 
 TMP_PBS="$(mktemp "${TMPDIR:-/tmp}/nfq-pbs.XXXXXX")"
 trap 'rm -f "$TMP_PBS"' EXIT
+
 defaults export pbs "$TMP_PBS"
+
+if [ -n "$PREV" ]; then
+  PREV_XML="$(plutil -convert xml1 -o - "$PBS_BACKUP_DIR/$PREV/pbs.plist" 2>/dev/null)" || PREV_XML=""
+else
+  PREV_XML=""
+fi
+CURR_XML="$(plutil -convert xml1 -o - "$TMP_PBS")"
+
+if [ -n "$CURR_XML" ] && [ "$PREV_XML" = "$CURR_XML" ]; then
+  echo "pbs は前回のバックアップ ($PREV) から変化していないため、pbsのバックアップ作成をスキップしました。"
+else
+  # フォルダの命名規則は変更しない。変更すると上のPREVが最新のバックアップフォルダである保証がなくなる。
+  SNAPSHOT_DIR="$PBS_BACKUP_DIR/$(date "+%Y-%m-%d_%H%M%S")"
+  mkdir -p "$SNAPSHOT_DIR"
+  cp "$TMP_PBS" "$SNAPSHOT_DIR/pbs.plist"
+  echo "pbs 変更前に既存pbsのバックアップを $SNAPSHOT_DIR/pbs.plist に保存しました。"
+fi
 
 failed=()
 created=()
