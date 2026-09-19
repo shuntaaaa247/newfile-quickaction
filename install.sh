@@ -96,7 +96,7 @@ for w in "$SERVICES_DIR"/*.workflow; do
 
   # ここに来たものが孤立した.workflow
   name="$(plutil -extract NSServices.0.NSMenuItem.default raw "$w/Contents/Info.plist" 2>/dev/null || true)"
-  /usr/libexec/PlistBuddy -c "Delete :NSServicesStatus:\"$id - $name - runWorkflowAsService\"" "$TMP_PBS" || true
+  /usr/libexec/PlistBuddy -c "Delete :NSServicesStatus:\"$id - $name - runWorkflowAsService\"" "$TMP_PBS" 2>/dev/null || true
   rm -rf "$w"
   removed_workflow+=("$(basename "$w")")
 done
