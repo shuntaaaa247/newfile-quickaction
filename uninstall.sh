@@ -90,13 +90,23 @@ fi
 removed_workflow=()
 for w in "$SERVICES_DIR"/*.workflow; do
   [ -d "$w" ] || continue
-  id="$(plutil -extract CFBundleIdentifier raw "$w/Contents/Info.plist" 2>/dev/null || true)"
+
+  if id="$(plutil -extract CFBundleIdentifier raw "$w/Contents/Info.plist" 2>/dev/null)"; then
+    :
+  else
+    id=""
+  fi
+
   case "$id" in
     "$BUNDLE_PREFIX".*) ;;  # 自分の物
     *) continue ;;          # 他人の物・IDなし → 触らない
   esac
 
-  name="$(plutil -extract NSServices.0.NSMenuItem.default raw "$w/Contents/Info.plist" 2>/dev/null || true)"
+  if name="$(plutil -extract NSServices.0.NSMenuItem.default raw "$w/Contents/Info.plist" 2>/dev/null)"; then
+    :
+  else
+    name=""
+  fi
   /usr/libexec/PlistBuddy -c "Delete :NSServicesStatus:\"$id - $name - runWorkflowAsService\"" "$TMP_PBS" 2>/dev/null || true
   rm -rf "$w"
   removed_workflow+=("$(basename "$w")")

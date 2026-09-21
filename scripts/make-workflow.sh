@@ -18,7 +18,11 @@ SLUG="$(/sbin/md5 -q -s "$NAME" | cut -c1-12)"
 BUNDLEID="$BUNDLE_PREFIX.$SLUG"
 
 if [ -e "$BUNDLE" ]; then
-  existing="$(plutil -extract CFBundleIdentifier raw "$CONTENTS/Info.plist" 2>/dev/null || true)"
+	if existing="$(plutil -extract CFBundleIdentifier raw "$CONTENTS/Info.plist" 2>/dev/null)"; then
+		:
+	else
+		existing=""
+	fi
 
   if [ "$existing" != "$BUNDLEID" ]; then
     echo "エラー: $BUNDLE は既に存在し、このツールが作ったものではありません。" >&2
@@ -27,7 +31,12 @@ if [ -e "$BUNDLE" ]; then
     exit 1
   fi
 
-  existing_name="$(plutil -extract NSServices.0.NSMenuItem.default raw "$CONTENTS/Info.plist" 2>/dev/null || true)"
+	if existing_name="$(plutil -extract NSServices.0.NSMenuItem.default raw "$CONTENTS/Info.plist" 2>/dev/null)"; then
+		:
+	else
+		existing_name=""
+	fi
+
   if [ "$existing_name" != "$NAME" ]; then
     echo "エラー: バンドルIDが一致するにもかかわらずメニュー名が違います（ハッシュ衝突の疑い）。" >&2
     echo "       既存: $existing_name / 今回: $NAME" >&2
