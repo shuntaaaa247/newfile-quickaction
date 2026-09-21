@@ -121,7 +121,7 @@ for template in "$TEMPLATES_DIR"/*; do
     -c "Add :NSServicesStatus:\"$KEY\":presentation_modes:FinderPreview bool true" \
     -c "Add :NSServicesStatus:\"$KEY\":presentation_modes:ServicesMenu bool true" \
     -c "Add :NSServicesStatus:\"$KEY\":presentation_modes:TouchBar bool false" \
-    "$TMP_PBS" || true
+    "$TMP_PBS" 2>/dev/null || true
 
   if [ "$(/usr/libexec/PlistBuddy -c "Print :NSServicesStatus:\"$KEY\":presentation_modes:ContextMenu" "$TMP_PBS" 2>/dev/null)" != true ]; then
     failed+=("$NAME")
@@ -168,7 +168,7 @@ cat << EOS
 テンプレートの置き場所: ${TEMPLATES_DIR}（ここにファイルを置いてから install.sh を再実行すると、フォルダ内でファイルを作成できます）
 初めて使うとき、Finder の操作を許可するダイアログが1回だけ出ます。「許可」を選んでください。
 
-macOS $(sw_vers -productVersion) で実行しました（検証済み: 26.6.2）。
+macOS $(sw_vers -productVersion) で実行しました（検証済み: 26.6.2 / 12.6.1）。
 おかしな挙動があれば、Issue にこの出力全体を貼ってください。
 EOS
 
