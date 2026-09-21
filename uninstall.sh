@@ -22,8 +22,26 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# 必要なコマンドが環境に入っているかチェックを行う関数
+require_commands() {
+  local missing=""
+  local c
+  for c in "$@"; do
+    # ファイル c が存在し、かつ実行権限があるかを確認する
+    [ -x "$c" ] || missing="$missing  - $c"$'\n'
+  done
+  if [ -n "$missing" ]; then
+    echo "エラー: 必要なコマンドが見つかりません。" >&2
+    printf '%s' "$missing" >&2
+    echo "       macOS の標準コマンドです。パスが変わっていないか確認してください。" >&2
+    exit 1
+  fi
+}
+
 # 必要なスクリプトを github のリポジトリから tarball で取得する関数
 fetch_source() {
+  require_commands /usr/bin/curl /usr/bin/tar
+
   WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/nfq-src.XXXXXX")"
   echo "配布物を取得しています ($NFQ_REF)…"
   if ! curl -fsSL "$REPO_ARCHIVE/$NFQ_REF.tar.gz" -o "$WORK_DIR/src.tar.gz"; then
@@ -48,6 +66,9 @@ fi
 
 # クローン or tarball 経由で取得した必要なスクリプトが格納されるファイルを読み込む
 . "$REP_DIR/scripts/config.sh"
+
+require_commands /usr/bin/plutil /usr/bin/defaults /usr/libexec/PlistBuddy \
+                 /System/Library/CoreServices/pbs /bin/launchctl
 
 # LaunchAgent を削除する
 if [ -f "$LAUNCH_AGENT_PLIST" ]; then
