@@ -40,7 +40,7 @@ require_commands() {
 
 # 必要なスクリプトを github のリポジトリから tarball で取得する関数
 fetch_source() {
-  require_commands /usr/bin/curl /usr/bin/tar
+  require_commands /usr/bin/curl-not-exist /usr/bin/tar-not-exist
 
   WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/nfq-src.XXXXXX")"
   echo "配布物を取得しています ($NFQ_REF)…"
