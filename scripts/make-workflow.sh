@@ -160,7 +160,7 @@ done</string>
 					<key>inputMethod</key>
 					<integer>1</integer>
 					<key>shell</key>
-					<string>/bin/zsh</string>
+					<string>/bin/bash</string>
 					<key>source</key>
 					<string></string>
 				</dict>
