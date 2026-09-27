@@ -1,4 +1,8 @@
 #!/bin/bash
+
+# インストール用のコマンド
+# curl -fsSL https://raw.githubusercontent.com/shuntaaaa247/newfile-quickaction/main/install.sh | bash
+
 set -euo pipefail
 
 # tarball で取得するリポジトリのパスとブランチ
@@ -89,7 +93,7 @@ fi
 # 本ツールの実行に必要なファイル群をユーザー環境に保存する
 # 実行に必要なサブのスクリプトをユーザーの環境に保存する（テンプレート追加時にクイックアクションの設定を自動で再設定するスクリプト）
 mkdir -p "$BIN_DIR"
-cp -p "$REP_DIR/scripts/make-workflow.sh" "$REP_DIR/scripts/config.sh" "$BIN_DIR/"
+cp -p "$REP_DIR/scripts/make-workflow.sh" "$REP_DIR/scripts/config.sh" "$REP_DIR/scripts/new-file.sh" "$BIN_DIR/"
 # 本ツールの実行前の pbs 設定をバックアップとして保存する（実際の保存処理は後述）
 mkdir -p "$PBS_BACKUP_DIR"
 # 直近のバックアップ（比較用）。1つも無ければ空
