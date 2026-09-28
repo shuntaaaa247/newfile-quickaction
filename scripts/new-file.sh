@@ -1,6 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/config.sh"
+
 # 作成するファイルのテンプレート名を取得
 TEMPLATE_NAME="${1:-}"
 [ -n "$TEMPLATE_NAME" ] || exit 0
@@ -38,5 +41,4 @@ fi
 
 # ファイルを作成
 [ -d "$dest" ] || exit 1
-/usr/bin/touch "$dest/$TEMPLATE_NAME"
-
+/bin/cp -p "$TEMPLATES_DIR/$TEMPLATE_NAME" "$dest/$TEMPLATE_NAME"
