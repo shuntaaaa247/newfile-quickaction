@@ -42,3 +42,11 @@ fi
 # ファイルを作成
 [ -d "$dest" ] || exit 1
 /bin/cp -p "$TEMPLATES_DIR/$TEMPLATE_NAME" "$dest/$TEMPLATE_NAME"
+
+# cp -p はモード以外も継承するので、コピー先では打ち消す。
+# どちらも失敗してもファイル自体は正しく作れているので、エラーにはしない。
+# ロック(uchg): 継承するとリネームも編集もできなくなる。テンプレートをロックする動機は
+# テンプレート自身を誤編集から守ることなので、コピー側では外す。
+/usr/bin/chflags nouchg "$dest/$TEMPLATE_NAME" 2>/dev/null || true
+# 日時: 継承するとテンプレートの日付になり、日付順のフォルダで新規ファイルが先頭に来ない。
+/usr/bin/touch "$dest/$TEMPLATE_NAME" 2>/dev/null || true
