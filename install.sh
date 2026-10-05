@@ -72,7 +72,20 @@ fi
 . "$REP_DIR/scripts/config.sh"
 
 require_commands /usr/bin/plutil /usr/bin/defaults /usr/libexec/PlistBuddy \
-                 /sbin/md5 /usr/bin/uuidgen /System/Library/CoreServices/pbs
+                 /sbin/md5 /usr/bin/uuidgen /usr/bin/sed /System/Library/CoreServices/pbs
+
+# PlistBuddy は -c に渡したコマンド文字列を再パースし、' " \ を引用符・エスケープとして食う。
+# また : はキーパスの区切りとして解釈される。NSServicesStatus のキーにはメニュー名
+# （＝利用者が自由に付けたテンプレートのファイル名）が入るので、これらを事前に退避する。
+# \ を最初に処理しないと、後続の置換で入れた \ をさらにエスケープしてしまう。
+pb_escape() {
+  printf '%s' "$1" | /usr/bin/sed -e 's/\\/\\\\/g' -e "s/'/\\\\'/g" -e 's/"/\\"/g' -e 's/:/\\:/g'
+}
+
+# plutil のキーパスは . だけを区切りとして扱う。バンドルIDに . が含まれるので退避する。
+plutil_escape() {
+  printf '%s' "$1" | /usr/bin/sed 's/\./\\./g'
+}
 
 # テンプレート（クイックアクションで作成するファイル）を格納するディレクトリをユーザーの環境に作成する
 mkdir -p "$TEMPLATES_DIR"
@@ -140,15 +153,19 @@ for template in "$TEMPLATES_DIR"/*; do
   GENERATED_IDS="$GENERATED_IDS$BUNDLEID"$'\n'
 
   KEY="$BUNDLEID - $NAME - runWorkflowAsService"
+  PB_KEY="$BUNDLEID - $(pb_escape "$NAME") - runWorkflowAsService"
   /usr/libexec/PlistBuddy \
-    -c "Delete :NSServicesStatus:\"$KEY\"" \
-    -c "Add :NSServicesStatus:\"$KEY\":presentation_modes:ContextMenu bool true" \
-    -c "Add :NSServicesStatus:\"$KEY\":presentation_modes:FinderPreview bool true" \
-    -c "Add :NSServicesStatus:\"$KEY\":presentation_modes:ServicesMenu bool true" \
-    -c "Add :NSServicesStatus:\"$KEY\":presentation_modes:TouchBar bool false" \
+    -c "Delete :NSServicesStatus:\"$PB_KEY\"" \
+    -c "Add :NSServicesStatus:\"$PB_KEY\":presentation_modes:ContextMenu bool true" \
+    -c "Add :NSServicesStatus:\"$PB_KEY\":presentation_modes:FinderPreview bool true" \
+    -c "Add :NSServicesStatus:\"$PB_KEY\":presentation_modes:ServicesMenu bool true" \
+    -c "Add :NSServicesStatus:\"$PB_KEY\":presentation_modes:TouchBar bool false" \
     "$TMP_PBS" 2>/dev/null || true
 
-  if [ "$(/usr/libexec/PlistBuddy -c "Print :NSServicesStatus:\"$KEY\":presentation_modes:ContextMenu" "$TMP_PBS" 2>/dev/null)" != true ]; then
+  # 検証は PlistBuddy ではなく plutil で行う。同じパーサで読み戻すと、書き込み側の
+  # 引用符の取りこぼしを読み戻し側も同じように間違えるため、キーが壊れていても一致してしまう。
+  # それが「エラーが出ないのにメニューに出てこない」silent failure の原因だった。
+  if [ "$(/usr/bin/plutil -extract "NSServicesStatus.$(plutil_escape "$KEY").presentation_modes.ContextMenu" raw -o - "$TMP_PBS" 2>/dev/null)" != true ]; then
     failed+=("$NAME")
     continue
   fi
@@ -180,7 +197,7 @@ for w in "$SERVICES_DIR"/*.workflow; do
   else
     name=""
   fi
-  /usr/libexec/PlistBuddy -c "Delete :NSServicesStatus:\"$id - $name - runWorkflowAsService\"" "$TMP_PBS" 2>/dev/null || true
+  /usr/libexec/PlistBuddy -c "Delete :NSServicesStatus:\"$id - $(pb_escape "$name") - runWorkflowAsService\"" "$TMP_PBS" 2>/dev/null || true
   rm -rf "$w"
   removed_workflow+=("$(basename "$w")")
 done
