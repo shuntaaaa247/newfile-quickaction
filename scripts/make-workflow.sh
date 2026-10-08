@@ -332,9 +332,14 @@ UUID_OUT="$(uuidgen)"
 W="$CONTENTS/document.wflow"
 A="actions.0.action"
 
+shell_quote() {
+	printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"
+}
+CMD="$(shell_quote "$BIN_DIR/new-file.sh") $(shell_quote "$NAME") \"\$@\""
+
 plutil -replace "$A.UUID"       -string "$UUID_MAIN" "$W"
 plutil -replace "$A.InputUUID"  -string "$UUID_IN"   "$W"
 plutil -replace "$A.OutputUUID" -string "$UUID_OUT"  "$W"
-plutil -replace "$A.ActionParameters.COMMAND_STRING" -string '/usr/bin/touch "${TMPDIR}nfq-ran"' "$W"
+plutil -replace "$A.ActionParameters.COMMAND_STRING" -string "$CMD" "$W"
 
 echo "$BUNDLEID"

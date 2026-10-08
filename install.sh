@@ -1,4 +1,8 @@
 #!/bin/bash
+
+# インストール用のコマンド
+# curl -fsSL https://raw.githubusercontent.com/shuntaaaa247/newfile-quickaction/main/install.sh | bash
+
 set -euo pipefail
 
 # tarball で取得するリポジトリのパスとブランチ
@@ -67,8 +71,26 @@ fi
 # クローン or tarball 経由で取得した必要なスクリプトが格納されるファイルを読み込む
 . "$REP_DIR/scripts/config.sh"
 
+# 3行目までは install.sh 自身が使うもの。4行目はインストールするスクリプトが呼ぶもので、
+# md5 / uuidgen は make-workflow.sh、cp / chmod / stat / mdls は new-file.sh が使う。
+# 実行時（右クリック時）に落ちるより、インストール時に落ちたほうが原因が分かるのでここで見る。
 require_commands /usr/bin/plutil /usr/bin/defaults /usr/libexec/PlistBuddy \
-                 /sbin/md5 /usr/bin/uuidgen /System/Library/CoreServices/pbs
+                 /usr/bin/sed /System/Library/CoreServices/pbs \
+                 /sbin/md5 /usr/bin/uuidgen \
+                 /bin/cp /bin/chmod /usr/bin/stat /usr/bin/mdls
+
+# PlistBuddy は -c に渡したコマンド文字列を再パースし、' " \ を引用符・エスケープとして食う。
+# また : はキーパスの区切りとして解釈される。NSServicesStatus のキーにはメニュー名
+# （＝利用者が自由に付けたテンプレートのファイル名）が入るので、これらを事前に退避する。
+# \ を最初に処理しないと、後続の置換で入れた \ をさらにエスケープしてしまう。
+pb_escape() {
+  printf '%s' "$1" | /usr/bin/sed -e 's/\\/\\\\/g' -e "s/'/\\\\'/g" -e 's/"/\\"/g' -e 's/:/\\:/g'
+}
+
+# plutil のキーパスは . だけを区切りとして扱う。バンドルIDに . が含まれるので退避する。
+plutil_escape() {
+  printf '%s' "$1" | /usr/bin/sed 's/\./\\./g'
+}
 
 # テンプレート（クイックアクションで作成するファイル）を格納するディレクトリをユーザーの環境に作成する
 mkdir -p "$TEMPLATES_DIR"
@@ -89,7 +111,7 @@ fi
 # 本ツールの実行に必要なファイル群をユーザー環境に保存する
 # 実行に必要なサブのスクリプトをユーザーの環境に保存する（テンプレート追加時にクイックアクションの設定を自動で再設定するスクリプト）
 mkdir -p "$BIN_DIR"
-cp -p "$REP_DIR/scripts/make-workflow.sh" "$REP_DIR/scripts/config.sh" "$BIN_DIR/"
+cp -p "$REP_DIR/scripts/make-workflow.sh" "$REP_DIR/scripts/config.sh" "$REP_DIR/scripts/new-file.sh" "$BIN_DIR/"
 # 本ツールの実行前の pbs 設定をバックアップとして保存する（実際の保存処理は後述）
 mkdir -p "$PBS_BACKUP_DIR"
 # 直近のバックアップ（比較用）。1つも無ければ空
@@ -136,15 +158,19 @@ for template in "$TEMPLATES_DIR"/*; do
   GENERATED_IDS="$GENERATED_IDS$BUNDLEID"$'\n'
 
   KEY="$BUNDLEID - $NAME - runWorkflowAsService"
+  PB_KEY="$BUNDLEID - $(pb_escape "$NAME") - runWorkflowAsService"
   /usr/libexec/PlistBuddy \
-    -c "Delete :NSServicesStatus:\"$KEY\"" \
-    -c "Add :NSServicesStatus:\"$KEY\":presentation_modes:ContextMenu bool true" \
-    -c "Add :NSServicesStatus:\"$KEY\":presentation_modes:FinderPreview bool true" \
-    -c "Add :NSServicesStatus:\"$KEY\":presentation_modes:ServicesMenu bool true" \
-    -c "Add :NSServicesStatus:\"$KEY\":presentation_modes:TouchBar bool false" \
+    -c "Delete :NSServicesStatus:\"$PB_KEY\"" \
+    -c "Add :NSServicesStatus:\"$PB_KEY\":presentation_modes:ContextMenu bool true" \
+    -c "Add :NSServicesStatus:\"$PB_KEY\":presentation_modes:FinderPreview bool true" \
+    -c "Add :NSServicesStatus:\"$PB_KEY\":presentation_modes:ServicesMenu bool true" \
+    -c "Add :NSServicesStatus:\"$PB_KEY\":presentation_modes:TouchBar bool false" \
     "$TMP_PBS" 2>/dev/null || true
 
-  if [ "$(/usr/libexec/PlistBuddy -c "Print :NSServicesStatus:\"$KEY\":presentation_modes:ContextMenu" "$TMP_PBS" 2>/dev/null)" != true ]; then
+  # 検証は PlistBuddy ではなく plutil で行う。同じパーサで読み戻すと、書き込み側の
+  # 引用符の取りこぼしを読み戻し側も同じように間違えるため、キーが壊れていても一致してしまう。
+  # それが「エラーが出ないのにメニューに出てこない」silent failure の原因だった。
+  if [ "$(/usr/bin/plutil -extract "NSServicesStatus.$(plutil_escape "$KEY").presentation_modes.ContextMenu" raw -o - "$TMP_PBS" 2>/dev/null)" != true ]; then
     failed+=("$NAME")
     continue
   fi
@@ -176,7 +202,7 @@ for w in "$SERVICES_DIR"/*.workflow; do
   else
     name=""
   fi
-  /usr/libexec/PlistBuddy -c "Delete :NSServicesStatus:\"$id - $name - runWorkflowAsService\"" "$TMP_PBS" 2>/dev/null || true
+  /usr/libexec/PlistBuddy -c "Delete :NSServicesStatus:\"$id - $(pb_escape "$name") - runWorkflowAsService\"" "$TMP_PBS" 2>/dev/null || true
   rm -rf "$w"
   removed_workflow+=("$(basename "$w")")
 done
