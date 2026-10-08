@@ -41,12 +41,9 @@ fi
 
 # ファイルを作成
 [ -d "$dest" ] || exit 1
-/bin/cp -p "$TEMPLATES_DIR/$TEMPLATE_NAME" "$dest/$TEMPLATE_NAME"
-
-# cp -p はモード以外も継承するので、コピー先では打ち消す。
-# どちらも失敗してもファイル自体は正しく作れているので、エラーにはしない。
-# ロック(uchg): 継承するとリネームも編集もできなくなる。テンプレートをロックする動機は
-# テンプレート自身を誤編集から守ることなので、コピー側では外す。
-/usr/bin/chflags nouchg "$dest/$TEMPLATE_NAME" 2>/dev/null || true
-# 日時: 継承するとテンプレートの日付になり、日付順のフォルダで新規ファイルが先頭に来ない。
-/usr/bin/touch "$dest/$TEMPLATE_NAME" 2>/dev/null || true
+/bin/cp "$TEMPLATES_DIR/$TEMPLATE_NAME" "$dest/$TEMPLATE_NAME"
+# 継承したいのはモードだけなので、cp -p ではなく自分で写す。
+# -p は作成日(birthtime)まで継承し、それを現在時刻に戻す標準コマンドが存在しないため
+# （SetFile は Xcode Command Line Tools が必要）。-p なしなら作成日・変更日は現在になり、
+# ロック(uchg)も付かない。cp は umask の影響を受けるが、ここで上書きするので結果は変わらない。
+/bin/chmod "$(/usr/bin/stat -f %Lp "$TEMPLATES_DIR/$TEMPLATE_NAME")" "$dest/$TEMPLATE_NAME"
