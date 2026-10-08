@@ -71,8 +71,13 @@ fi
 # クローン or tarball 経由で取得した必要なスクリプトが格納されるファイルを読み込む
 . "$REP_DIR/scripts/config.sh"
 
+# 3行目までは install.sh 自身が使うもの。4行目はインストールするスクリプトが呼ぶもので、
+# md5 / uuidgen は make-workflow.sh、cp / chmod / stat / mdls は new-file.sh が使う。
+# 実行時（右クリック時）に落ちるより、インストール時に落ちたほうが原因が分かるのでここで見る。
 require_commands /usr/bin/plutil /usr/bin/defaults /usr/libexec/PlistBuddy \
-                 /sbin/md5 /usr/bin/uuidgen /usr/bin/sed /System/Library/CoreServices/pbs
+                 /usr/bin/sed /System/Library/CoreServices/pbs \
+                 /sbin/md5 /usr/bin/uuidgen \
+                 /bin/cp /bin/chmod /usr/bin/stat /usr/bin/mdls
 
 # PlistBuddy は -c に渡したコマンド文字列を再パースし、' " \ を引用符・エスケープとして食う。
 # また : はキーパスの区切りとして解釈される。NSServicesStatus のキーにはメニュー名
