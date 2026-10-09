@@ -39,11 +39,31 @@ else
   done
 fi
 
-# ファイルを作成
 [ -d "$dest" ] || exit 1
-/bin/cp "$TEMPLATES_DIR/$TEMPLATE_NAME" "$dest/$TEMPLATE_NAME"
+
+# テンプレート名をベース名と拡張子に分ける(連番を挟む位置を決めるため)
+# 最後のドットで切る。先頭のドットは区切りとして扱わない(.gitignore のベース名が空になるため)
+base="$TEMPLATE_NAME"
+ext=""
+case "${TEMPLATE_NAME#.}" in
+  *.*) ext=".${TEMPLATE_NAME##*.}"; base="${TEMPLATE_NAME%"$ext"}" ;;
+esac
+
+# 同名のファイルがあれば Finder 流に半角スペース + 数字を付ける(2 から始める)。
+# 判定は名前の文字列比較ではなくファイルシステムに問い合わせる(日本語が NFD で届くため)。
+# -L も見るのは、リンク先が無い symlink を cp の宛先にするとリンク先に書いてしまうため。
+# 波括弧で囲むのは、UTF-8 ロケールで変数の直後に全角文字が続くと unbound variable になるため
+target="$dest/$TEMPLATE_NAME"
+n=2
+while [ -e "$target" ] || [ -L "$target" ]; do
+  target="$dest/${base} ${n}${ext}"
+  n=$((n + 1))
+done
+
+# ファイルを作成
+/bin/cp "$TEMPLATES_DIR/$TEMPLATE_NAME" "$target"
 # 継承したいのはモードだけなので、cp -p ではなく自分で写す。
 # -p は作成日(birthtime)まで継承し、それを現在時刻に戻す標準コマンドが存在しないため
 # （SetFile は Xcode Command Line Tools が必要）。-p なしなら作成日・変更日は現在になり、
 # ロック(uchg)も付かない。cp は umask の影響を受けるが、ここで上書きするので結果は変わらない。
-/bin/chmod "$(/usr/bin/stat -f %Lp "$TEMPLATES_DIR/$TEMPLATE_NAME")" "$dest/$TEMPLATE_NAME"
+/bin/chmod "$(/usr/bin/stat -f %Lp "$TEMPLATES_DIR/$TEMPLATE_NAME")" "$target"
