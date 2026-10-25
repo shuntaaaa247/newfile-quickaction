@@ -67,3 +67,20 @@ done
 # （SetFile は Xcode Command Line Tools が必要）。-p なしなら作成日・変更日は現在になり、
 # ロック(uchg)も付かない。cp は umask の影響を受けるが、ここで上書きするので結果は変わらない。
 /bin/chmod "$(/usr/bin/stat -f %Lp "$TEMPLATES_DIR/$TEMPLATE_NAME")" "$target"
+
+# 作ったファイルを Finder で選択状態にする(ユーザーが Enter を押すだけでリネームできるようにするため)。
+# パスは AppleScript の文字列リテラルに埋め込まず、run ハンドラの引数(argv)として渡す。
+# osascript は -e の中身を AppleScript として再パースするので、埋め込むと " と \ の退避が必要になり、
+# 1-6 の PlistBuddy と同じ「エスケープ漏れで静かに失敗する」形を作ることになる。
+# 引数で渡せばパスは文字列リテラルを経由しないので、退避そのものが要らない。
+# 選択に失敗してもファイルの作成自体は成功しているので、終了コードは汚さない(|| true)。
+# Apple Events を拒否された場合のメッセージの出し方は 4-6 / 6-1 で扱う。
+# stderr は潰さない(exit 0 なら Automator のダイアログには出ず、手で叩いたときだけ原因が見える)。
+# activate を入れるのは、背面の Finder ウィンドウで右クリックしても Finder が前面にならず、
+# ハイライトはされるのに Enter が別アプリに行ってしまうため(VM で実測)。
+/usr/bin/osascript -e 'on run argv
+  tell application "Finder"
+    activate
+    select (POSIX file (item 1 of argv) as alias)
+  end tell
+end run' "$target" || true
