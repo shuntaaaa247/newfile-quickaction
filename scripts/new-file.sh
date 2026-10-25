@@ -76,6 +76,11 @@ done
 # 選択に失敗してもファイルの作成自体は成功しているので、終了コードは汚さない(|| true)。
 # Apple Events を拒否された場合のメッセージの出し方は 4-6 / 6-1 で扱う。
 # stderr は潰さない(exit 0 なら Automator のダイアログには出ず、手で叩いたときだけ原因が見える)。
+# activate を入れるのは、背面の Finder ウィンドウで右クリックしても Finder が前面にならず、
+# ハイライトはされるのに Enter が別アプリに行ってしまうため(VM で実測)。
 /usr/bin/osascript -e 'on run argv
-  tell application "Finder" to select (POSIX file (item 1 of argv) as alias)
+  tell application "Finder"
+    activate
+    select (POSIX file (item 1 of argv) as alias)
+  end tell
 end run' "$target" || true
