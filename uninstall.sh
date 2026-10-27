@@ -66,9 +66,13 @@ fi
 
 # クローン or tarball 経由で取得した必要なスクリプトが格納されるファイルを読み込む
 . "$REP_DIR/scripts/config.sh"
+# pbs のキーの組み立てと退避。install.sh 側と同じ実装を通す（3箇所で独立に組み立てないため）
+. "$REP_DIR/scripts/pbs-key.sh"
 
+# sed は pb_escape が使う
 require_commands /usr/bin/plutil /usr/bin/defaults /usr/libexec/PlistBuddy \
-                 /System/Library/CoreServices/pbs /bin/launchctl
+                 /System/Library/CoreServices/pbs /bin/launchctl \
+                 /usr/bin/sed
 
 # LaunchAgent を削除する
 if [ -f "$LAUNCH_AGENT_PLIST" ]; then
@@ -128,7 +132,11 @@ for w in "$SERVICES_DIR"/*.workflow; do
   else
     name=""
   fi
-  /usr/libexec/PlistBuddy -c "Delete :NSServicesStatus:\"$id - $name - runWorkflowAsService\"" "$TMP_PBS" 2>/dev/null || true
+  # キーは退避してから渡す。退避を忘れると ' " \ : を含むテンプレート名でキーパスが壊れるが、
+  # PlistBuddy のパースエラーは stdout に出るので 2>/dev/null では見えず、
+  # 終了コードも || true で消えるため「削除しました」と報告しながらキーが残る。
+  # 2>/dev/null が捨てるのは「そのキーは無い」という無害なエラーだけ
+  /usr/libexec/PlistBuddy -c "Delete :NSServicesStatus:\"$(pb_escape "$(pbs_key "$id" "$name")")\"" "$TMP_PBS" 2>/dev/null || true
   rm -rf "$w"
   removed_workflow+=("$(basename "$w")")
 done
