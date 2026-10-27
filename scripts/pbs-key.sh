@@ -3,7 +3,9 @@
 # このファイルを作った理由: キー文字列「<バンドルID> - <メニュー名> - runWorkflowAsService」を
 # install.sh / uninstall.sh が共通で組み立てられるようにするため
 #
-# require_commands はここに移さないこと。
+# require_commands はここに移さないこと。install.sh / uninstall.sh は、このファイルを
+# 手に入れる前（curl | bash で配布物を取得する段階）に require_commands で curl と tar を
+# 確認する。source 元がまだ無い時点で必要なので、共有ファイルに置くと順序が成立しない。
 
 # pbs の NSServicesStatus のキーを組み立てる。$1=バンドルID $2=メニュー名
 pbs_key() {
